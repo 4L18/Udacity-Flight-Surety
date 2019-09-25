@@ -17,32 +17,53 @@ contract FlightSuretyApp {
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
 
-    // Flight status codees
-    uint8 private constant STATUS_CODE_UNKNOWN = 0;
-    uint8 private constant STATUS_CODE_ON_TIME = 10;
-    uint8 private constant STATUS_CODE_LATE_AIRLINE = 20;
-    uint8 private constant STATUS_CODE_LATE_WEATHER = 30;
-    uint8 private constant STATUS_CODE_LATE_TECHNICAL = 40;
-    uint8 private constant STATUS_CODE_LATE_OTHER = 50;
-
-    address private contractOwner;          // Account used to deploy contract
+    address private contractOwner;
+    bool private operational;
     FlightSuretyData flightSuretyData;
+    mapping(address => bytes32) private insuredPassengers;
 
     struct Flight {
-        bool isRegistered;
         uint8 statusCode;
         uint256 updatedTimestamp;        
         address airline;
     }
     mapping(bytes32 => Flight) private flights;
+    uint private flightsCount = 0;
 
- 
+    uint8 private constant STATUS_CODE_UNKNOWN = 0;
+    uint8 private constant STATUS_CODE_CHECK_IN_CLOSEDE = 10;
+    uint8 private constant STATUS_CODE_ON_TIME = 20;
+    uint8 private constant STATUS_CODE_LATE_AIRLINE = 30;
+    uint8 private constant STATUS_CODE_LATE_WEATHER = 40;
+    uint8 private constant STATUS_CODE_LATE_TECHNICAL = 50;
+    uint8 private constant STATUS_CODE_LATE_OTHER = 60;
+
+
+    /********************************************************************************************/
+    /*                                       EVENT DEFINITIONS                                  */
+    /********************************************************************************************/
+    
+    event FlightRegistered(bytes32 flightNumber);
+    event SuretyBought(address, bytes32);
+    event SuretyWithdrawal(address, bytes32);
+    event FlightStatusUpdated(bytes32, uint8);
+
+    /********************************************************************************************/
+    /*                                       CONSTRUCTOR & FALLBACK                             */
+    /********************************************************************************************/
+
+    constructor() 
+    public 
+    {
+        contractOwner = msg.sender;
+        operational = true;
+        flightsCount = 0;
+    }
+
+
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
     /********************************************************************************************/
-
-    // Modifiers help avoid duplication of code. They are typically used to validate something
-    // before a function is allowed to be executed.
 
     modifier requireIsOperational() 
     {
@@ -63,96 +84,107 @@ contract FlightSuretyApp {
         _;
     }
 
-    /********************************************************************************************/
-    /*                                       CONSTRUCTOR                                        */
-    /********************************************************************************************/
-
-    /**
-    * @dev Contract constructor
-    *
-    */
-    constructor
-                                (
-                                ) 
-                                public 
-    {
-        contractOwner = msg.sender;
-    }
 
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
 
-    function isOperational() 
-                            public 
-                            pure 
-                            returns(bool) 
+    function isOperational()
+    public
+    view
+    returns(bool) 
     {
-        return true;  // Modify to call data contract's status
+        return operational;
     }
 
     function setOperatingStatus(bool mode)
     external
-    requireContractOwner 
+    requireContractOwner
     {
-        flightSuretyData.setOperatingStatus(mode);
-        return;
+        require(mode != operational, "New mode must be different from existing mode.");
+        operational = mode;
     }
 
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
 
-  
-   /**
-    * @dev Add an airline to the registration queue
-    *
-    */   
-    function registerAirline(address addr) returns(bool success, uint256 votes)
+    function registerAirline(address addr)
+    returns(bool)
     {
-        flightSuretyData.registerAirline;
-        return (success, 0);
+        bool success = flightSuretyData.registerAirline(addr);
+        return (success);
     }
 
     function fund()
     payable
+    requireIsOperational
+    onlyExternalOwnedAccounts(tx.origin, msg.sender)
+    returns(bool)
+    {
+        bool success = flightSuretyData.fund(msg.sender, msg.value);
+        return (success);
+    }
+
+    function buy(bytes32 flightNumber)
+    payable
+    requireIsOperational
+    onlyExternalOwnedAccounts(tx.origin, msg.sender)
+    returns(bool)
+    {
+        require(flights[flightNumber].statusCode == 0, "Flight not registered or check-in is already closed");
+        require(0 < msg.value && msg.value <= 10**18);
+
+        bool success = flightSuretyData.buy(msg.sender, msg.value);
+        insuredPassengers[msg.sender] = flightNumber;
+        emit SuretyBought(msg.sender, flightNumber);
+        return success;        
+    }
+
+    function withdrawal(bytes32 flightNumber)
+    requireIsOperational
+    onlyExternalOwnedAccounts(tx.origin, msg.sender)
+    returns(bool)
+    {
+        require(flights[flightNumber].statusCode == 30);
+        require(insuredPassengers[msg.sender] == flightNumber);
+
+        bool success = flightSuretyData.creditInsurees(msg.sender);
+        insuredPassengers[msg.sender] = 0;        
+        emit SuretyWithdrawal(msg.sender, flightNumber);
+        require(success);
+    }
+
+    function registerFlight(bytes32 flightNumber, address airlineAddr, uint256 timestamp)
+    external
+    requireIsOperational
     onlyExternalOwnedAccounts(tx.origin, msg.sender)
     {
-        flightSuretyData.fund();
-        return;
-    }
-
-    function registerFlight
-                                (
-                                )
-                                external
-                                pure
-    {
-
+        flightsCount = flightsCount.add(1);
+        flights[flightNumber] = Flight({
+                statusCode: 0,
+                updatedTimestamp: timestamp,
+                airline: airlineAddr
+            });
+        emit FlightRegistered(flightNumber);
     }
     
-   /**
-    * @dev Called after oracle has updated flight status
-    *
-    */  
-    function processFlightStatus
-                                (
-                                    address airline,
-                                    string memory flight,
-                                    uint256 timestamp,
-                                    uint8 statusCode
-                                )
-                                internal
-                                pure
+    function processFlightStatus(address airline, bytes32 flight, uint256 timestamp, uint8 statusCode)
+    internal
+    requireIsOperational
+    onlyExternalOwnedAccounts(tx.origin, msg.sender)
     {
+        require(flightSuretyData.isCallerAuthorized(msg.sender));
+        flights[flight].statusCode = statusCode;
+        flights[flight].updatedTimestamp = timestamp;
+        emit FlightStatusUpdated(flight, statusCode);
     }
-
 
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus
                         (
                             address airline,
-                            string flight,
+                            bytes32 flight,
                             uint256 timestamp                            
                         )
                         external
@@ -204,14 +236,14 @@ contract FlightSuretyApp {
     mapping(bytes32 => ResponseInfo) private oracleResponses;
 
     // Event fired each time an oracle submits a response
-    event FlightStatusInfo(address airline, string flight, uint256 timestamp, uint8 status);
+    event FlightStatusInfo(address airline, bytes32 flight, uint256 timestamp, uint8 status);
 
-    event OracleReport(address airline, string flight, uint256 timestamp, uint8 status);
+    event OracleReport(address airline, bytes32 flight, uint256 timestamp, uint8 status);
 
     // Event fired when flight status request is submitted
     // Oracles track this and if they have a matching index
     // they fetch data and submit a response
-    event OracleRequest(uint8 index, address airline, string flight, uint256 timestamp);
+    event OracleRequest(uint8 index, address airline, bytes32 flight, uint256 timestamp);
 
 
     // Register an oracle with the contract
@@ -255,7 +287,7 @@ contract FlightSuretyApp {
                         (
                             uint8 index,
                             address airline,
-                            string flight,
+                            bytes32 flight,
                             uint256 timestamp,
                             uint8 statusCode
                         )
@@ -285,7 +317,7 @@ contract FlightSuretyApp {
     function getFlightKey
                         (
                             address airline,
-                            string flight,
+                            bytes32 flight,
                             uint256 timestamp
                         )
                         pure

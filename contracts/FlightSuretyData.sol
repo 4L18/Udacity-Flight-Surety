@@ -11,10 +11,11 @@ contract FlightSuretyData {
 
     address private contractOwner;
     bool private operational = true;
-    mapping(address => uint) private contractFunds;
+    mapping(address => uint) private fundsRegister;
     uint private raisedFunds= 0;
     uint constant M = 5;
     mapping(address => bool) private authorizedCallers;
+
 
     struct Airline {
         uint id;
@@ -28,7 +29,6 @@ contract FlightSuretyData {
     }
     mapping(address => Airline) private airlines;
     uint private airlinesCount = 0;
-    
 
 
     /********************************************************************************************/
@@ -36,12 +36,13 @@ contract FlightSuretyData {
     /********************************************************************************************/
     
     event CallerAuthorized(address caller);
-    event AirlineAdded(address airline);
     event AirlineRegistered(address airline);
     event RaisedFunds(uint funds);
+    event PassengerWithdrawal(address insured);
+
 
     /********************************************************************************************/
-    /*                                       CONSTRUCTOR & FALLBACK                                  */
+    /*                                       CONSTRUCTOR & FALLBACK                             */
     /********************************************************************************************/
 
     constructor() public payable
@@ -49,7 +50,6 @@ contract FlightSuretyData {
         contractOwner = msg.sender;
         operational = true;
         airlinesCount = 0;
-        //flightCount = 0;
         //insuranceCount = 0;
 
         authorizedCallers[address(this)] = true;
@@ -89,12 +89,6 @@ contract FlightSuretyData {
         _;
     }
 
-    modifier onlyExternalOwnedAccounts(address origin, address sender)
-    {
-        require(origin == sender, "Contracts are not allowed to call this function");
-        _;
-    }
-
     modifier onlyAuthorizedCallers(address _address)
     {
         require(msg.sender == _address, "The caller can not invoke this operation.");
@@ -122,19 +116,19 @@ contract FlightSuretyData {
         operational = mode;
     }
 
-    function isCallerAuthorized()
+    function isCallerAuthorized(address sender)
     public
     view
     returns(bool)
     {
-        return authorizedCallers[msg.sender];
+        return authorizedCallers[sender];
     }
     
     function authorizeCaller(address addr)
     external
     requireIsOperational
     {
-        //require(!isCallerAuthorized());
+        require(!isCallerAuthorized(addr));
         authorizedCallers[addr] = true;
     }
 
@@ -142,7 +136,7 @@ contract FlightSuretyData {
     external
     requireIsOperational
     {
-        require(isCallerAuthorized());
+        require(isCallerAuthorized(addr));
         authorizedCallers[addr] = false;
     }
 
@@ -154,18 +148,20 @@ contract FlightSuretyData {
     function registerAirline(address addr)
     external
     requireIsOperational
+    returns(bool)
     {
         require(addr != msg.sender);
         require(airlines[msg.sender].status == AirlineStatus.Registered
             || airlines[msg.sender].status == AirlineStatus.Authorized);
-
-        airlinesCount = airlinesCount.add(1);
-        emit AirlineAdded(addr);
+        
+        bool success = false;
 
         if (airlinesCount < M) {
         
             airlines[addr].status = AirlineStatus.Authorized;
+            airlinesCount = airlinesCount.add(1);
             emit AirlineRegistered(addr);
+            success = true;
 
         } else {
 
@@ -175,82 +171,79 @@ contract FlightSuretyData {
             require(airlines[addr].votes > airlinesCount/2, "There is not consensus yet");
             
             airlines[addr].status = AirlineStatus.Authorized;
+            airlinesCount = airlinesCount.add(1);
             emit AirlineRegistered(addr);
+            success = true;
         }
+
+        return success;
     }
 
-    function fund()
+    function fund(address fundsBy, uint amount)
     external
     payable
     requireIsOperational
+    onlyAuthorizedCallers(msg.sender)
+    returns(bool)
     {
-        contractFunds[msg.sender] += msg.value;
-        raisedFunds += msg.value;
+        bool success = false;
+
+        uint total = fundsRegister[fundsBy].add(amount);
+        fundsRegister[fundsBy] = total;
+        raisedFunds.add(amount);
         emit RaisedFunds(raisedFunds);
         
-        require(airlines[msg.sender].status == AirlineStatus.Registered);
-        require(contractFunds[msg.sender] >= 10 ether);
+        require(airlines[fundsBy].status == AirlineStatus.Registered);
+        require(fundsRegister[fundsBy] >= 10 ether);
 
-        airlines[msg.sender].status = AirlineStatus.Authorized;
-        authorizedCallers[msg.sender] = true;
-        emit CallerAuthorized(msg.sender);
+        airlines[fundsBy].status = AirlineStatus.Authorized;
+        authorizedCallers[fundsBy] = true;
+        emit CallerAuthorized(fundsBy);
+
+        success = true;
+        return success;
     }
 
-    /**
-    * @dev Buy insurance for a flight
-    *
-    */   
-    function buy
-                            (                             
-                            )
-                            external
-                            payable
-    {
 
+    function buy(address buyer, uint amount)
+    external
+    payable
+    requireIsOperational
+    onlyAuthorizedCallers(msg.sender)
+    returns(bool)
+    {
+        bool success = false;
+        uint total = fundsRegister[buyer].add(amount);
+        fundsRegister[buyer] = total;
+        raisedFunds.add(amount);
+        emit RaisedFunds(raisedFunds);
+        success = true;
+        return success;
     }
 
-    /**
-     *  @dev Credits payouts to insurees
-    */
-    function creditInsurees
-                                (
-                                )
-                                external
-                                pure
+    function creditInsurees(address insured)
+    external
+    requireIsOperational
+    onlyAuthorizedCallers(msg.sender)
+    returns(bool)
     {
+        bool success = false;
+        uint credit = fundsRegister[insured];
+        credit = credit.mul(15);
+        credit = credit.div(10);
+        fundsRegister[insured] = 0;
+        raisedFunds.sub(credit);
+        pay(insured, credit);
+        emit PassengerWithdrawal(insured);
+        success = true;
+        return success;
     }
     
-
-    /**
-     *  @dev Transfers eligible payout funds to insuree
-     *
-    */
-    function pay
-                            (
-                            )
-                            external
-                            pure
+    function pay(address insured, uint credit)
+    internal
+    requireIsOperational
+    onlyAuthorizedCallers(msg.sender)
     {
-    }
-
-   /**
-    * @dev Initial funding for the insurance. Unless there are too many delayed flights
-    *      resulting in insurance payouts, the contract should be self-sustaining
-    *
-    */   
-    
-
-    function getFlightKey
-                        (
-                            address airline,
-                            string memory flight,
-                            uint256 timestamp
-                        )
-                        pure
-                        internal
-                        returns(bytes32) 
-    {
-        return keccak256(abi.encodePacked(airline, flight, timestamp));
+        insured.transfer(credit);
     }
 }
-
