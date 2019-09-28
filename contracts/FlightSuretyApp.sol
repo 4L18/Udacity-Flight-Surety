@@ -21,6 +21,8 @@ contract FlightSuretyApp {
     bool private operational;
     FlightSuretyData flightSuretyData;
     mapping(address => bytes32) private insuredPassengers;
+    uint constant M = 5;
+
 
     struct Flight {
         uint8 statusCode;
@@ -110,10 +112,22 @@ contract FlightSuretyApp {
     /********************************************************************************************/
 
     function registerAirline(address addr)
-    returns(bool)
+    returns(FlightSuretyData.AirlineStatus)
     {
-        bool success = flightSuretyData.registerAirline(addr);
-        return (success);
+
+        require(flightSuretyData.getAirlineStatus(msg.sender) == FlightSuretyData.AirlineStatus.Authorized);
+        require(flightSuretyData.getAirlineStatus(addr) != FlightSuretyData.AirlineStatus.Registered);
+        require(flightSuretyData.getAirlineStatus(addr) != FlightSuretyData.AirlineStatus.Authorized);
+        
+        if(flightSuretyData.getAirlinesCount() < M) {
+
+            flightSuretyData.registerAirline(addr);
+            
+        } else {
+
+            flightSuretyData.voteAirline(addr);            
+        }
+        return (flightSuretyData.getAirlineStatus(addr));
     }
 
     function fund()
@@ -122,8 +136,19 @@ contract FlightSuretyApp {
     onlyExternalOwnedAccounts(tx.origin, msg.sender)
     returns(bool)
     {
+
+        require(flightSuretyData.getAirlineStatus(msg.sender) == FlightSuretyData.AirlineStatus.Registered
+            || flightSuretyData.getAirlineStatus(msg.sender) == FlightSuretyData.AirlineStatus.Authorized);
+        
+        
         bool success = flightSuretyData.fund(msg.sender, msg.value);
-        return (success);
+        
+        if(flightSuretyData.getAirlineFunds(msg.sender) >= 10 ether) {
+
+            flightSuretyData.authorizeCaller(msg.sender);
+        }
+
+        return success;
     }
 
     function buy(bytes32 flightNumber)
@@ -149,7 +174,11 @@ contract FlightSuretyApp {
         require(flights[flightNumber].statusCode == 30);
         require(insuredPassengers[msg.sender] == flightNumber);
 
-        bool success = flightSuretyData.creditInsurees(msg.sender);
+        uint credit = flightSuretyData.getInsuredFunds(msg.sender);
+        credit = credit.mul(15);
+        credit = credit.div(10);
+        
+        bool success = flightSuretyData.creditInsurees(msg.sender, credit);
         insuredPassengers[msg.sender] = 0;        
         emit SuretyWithdrawal(msg.sender, flightNumber);
         require(success);

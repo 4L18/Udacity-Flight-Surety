@@ -13,7 +13,6 @@ contract FlightSuretyData {
     bool private operational = true;
     mapping(address => uint) private fundsRegister;
     uint private raisedFunds= 0;
-    uint constant M = 5;
     mapping(address => bool) private authorizedCallers;
 
 
@@ -24,6 +23,7 @@ contract FlightSuretyData {
         uint votes;
     }
     enum AirlineStatus {
+        Voted,
         Registered,
         Authorized
     }
@@ -35,7 +35,8 @@ contract FlightSuretyData {
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
     
-    event CallerAuthorized(address caller);
+    event CallerHasBeenAuthorized(address caller);
+    event AirlineHasBeenVoted(address airline);
     event AirlineRegistered(address airline);
     event RaisedFunds(uint funds);
     event PassengerWithdrawal(address insured);
@@ -50,12 +51,11 @@ contract FlightSuretyData {
         contractOwner = msg.sender;
         operational = true;
         airlinesCount = 0;
-        //insuranceCount = 0;
 
-        authorizedCallers[address(this)] = true;
-        emit CallerAuthorized(address(this));
-        authorizedCallers[contractOwner] = true;
-        emit CallerAuthorized(contractOwner);
+        this.authorizeCaller(address(this));
+        emit CallerHasBeenAuthorized(address(this));
+        this.authorizeCaller(contractOwner);
+        emit CallerHasBeenAuthorized(contractOwner);
 
         airlinesCount = airlinesCount.add(1);
         airlines[contractOwner] = Airline({
@@ -126,10 +126,12 @@ contract FlightSuretyData {
     
     function authorizeCaller(address addr)
     external
+    onlyAuthorizedCallers(msg.sender)
     requireIsOperational
     {
         require(!isCallerAuthorized(addr));
         authorizedCallers[addr] = true;
+        emit CallerHasBeenAuthorized(addr);
     }
 
     function unauthorizeCaller(address addr)
@@ -140,6 +142,38 @@ contract FlightSuretyData {
         authorizedCallers[addr] = false;
     }
 
+    function getAirlineStatus(address airline)
+    external
+    view
+    returns(AirlineStatus)
+    {
+        return airlines[airline].status;
+    }
+
+    function getAirlinesCount()
+    external
+    view
+    returns(uint)
+    {
+        return airlinesCount;
+    }
+
+    function getAirlineFunds(address airline)
+    external
+    view
+    returns(uint)
+    {
+        return fundsRegister[airline];
+    }
+
+    function getInsuredFunds(address insured)
+    external
+    view
+    returns(uint)
+    {
+        return fundsRegister[insured];
+    }
+
 
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
@@ -148,35 +182,31 @@ contract FlightSuretyData {
     function registerAirline(address addr)
     external
     requireIsOperational
-    returns(bool)
+    returns(AirlineStatus)
     {
-        require(addr != msg.sender);
-        require(airlines[msg.sender].status == AirlineStatus.Registered
-            || airlines[msg.sender].status == AirlineStatus.Authorized);
+        airlines[addr].status = AirlineStatus.Registered;
+        airlinesCount = airlinesCount.add(1);
+        emit AirlineRegistered(addr);
+        return airlines[addr].status;
+    }
+
+    function voteAirline(address addr)
+    external
+    requireIsOperational
+    returns(AirlineStatus)
+    {
+        bool duplicate = airlines[addr].votedBy[msg.sender];
+        require(!duplicate, "Caller has already voted this airline.");
+
+        airlines[addr].votedBy[msg.sender] = true;
+        airlines[addr].votes.add(1);
+        airlines[addr].status = AirlineStatus.Voted;
+        emit AirlineHasBeenVoted(addr);
+
+        require(airlines[addr].votes > airlinesCount.div(2), "There is not consensus yet");
+        this.registerAirline(addr);
         
-        bool success = false;
-
-        if (airlinesCount < M) {
-        
-            airlines[addr].status = AirlineStatus.Authorized;
-            airlinesCount = airlinesCount.add(1);
-            emit AirlineRegistered(addr);
-            success = true;
-
-        } else {
-
-            bool duplicate = airlines[addr].votedBy[msg.sender];
-            require(!duplicate, "Caller has already called this function.");
-
-            require(airlines[addr].votes > airlinesCount/2, "There is not consensus yet");
-            
-            airlines[addr].status = AirlineStatus.Authorized;
-            airlinesCount = airlinesCount.add(1);
-            emit AirlineRegistered(addr);
-            success = true;
-        }
-
-        return success;
+        return airlines[addr].status;
     }
 
     function fund(address fundsBy, uint amount)
@@ -192,13 +222,6 @@ contract FlightSuretyData {
         fundsRegister[fundsBy] = total;
         raisedFunds.add(amount);
         emit RaisedFunds(raisedFunds);
-        
-        require(airlines[fundsBy].status == AirlineStatus.Registered);
-        require(fundsRegister[fundsBy] >= 10 ether);
-
-        airlines[fundsBy].status = AirlineStatus.Authorized;
-        authorizedCallers[fundsBy] = true;
-        emit CallerAuthorized(fundsBy);
 
         success = true;
         return success;
@@ -221,16 +244,13 @@ contract FlightSuretyData {
         return success;
     }
 
-    function creditInsurees(address insured)
+    function creditInsurees(address insured, uint credit)
     external
     requireIsOperational
     onlyAuthorizedCallers(msg.sender)
     returns(bool)
     {
         bool success = false;
-        uint credit = fundsRegister[insured];
-        credit = credit.mul(15);
-        credit = credit.div(10);
         fundsRegister[insured] = 0;
         raisedFunds.sub(credit);
         pay(insured, credit);
