@@ -52,9 +52,10 @@ contract FlightSuretyData {
         operational = true;
         airlinesCount = 0;
 
-        this.authorizeCaller(address(this));
+        authorizedCallers[address(this)] = true;
         emit CallerHasBeenAuthorized(address(this));
-        this.authorizeCaller(contractOwner);
+
+        authorizedCallers[contractOwner] = true;
         emit CallerHasBeenAuthorized(contractOwner);
 
         airlinesCount = airlinesCount.add(1);

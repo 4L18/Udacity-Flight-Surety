@@ -48,7 +48,7 @@ contract FlightSuretyApp {
     event FlightRegistered(bytes32 flightNumber);
     event SuretyBought(address, bytes32);
     event SuretyWithdrawal(address, bytes32);
-    event FlightStatusUpdated(bytes32, uint8);
+    event FlightStatusUpdated(address, bytes32, uint256, uint8);
 
     /********************************************************************************************/
     /*                                       CONSTRUCTOR & FALLBACK                             */
@@ -206,7 +206,8 @@ contract FlightSuretyApp {
         require(flightSuretyData.isCallerAuthorized(msg.sender));
         flights[flight].statusCode = statusCode;
         flights[flight].updatedTimestamp = timestamp;
-        emit FlightStatusUpdated(flight, statusCode);
+        emit FlightStatusUpdated(airline, flight, timestamp, statusCode);
+        
     }
 
     // Generate a request for oracles to fetch flight information
@@ -334,8 +335,6 @@ contract FlightSuretyApp {
         // oracles respond with the *** same *** information
         emit OracleReport(airline, flight, timestamp, statusCode);
         if (oracleResponses[key].responses[statusCode].length >= MIN_RESPONSES) {
-
-            emit FlightStatusInfo(airline, flight, timestamp, statusCode);
 
             // Handle flight status as appropriate
             processFlightStatus(airline, flight, timestamp, statusCode);

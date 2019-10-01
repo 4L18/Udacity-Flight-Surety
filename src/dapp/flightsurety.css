@@ -16,6 +16,10 @@ body {
     margin-top: 20px;
 }
 
+div#refund-div {
+    display:none;
+}
+
 h5 {
     color: #999999;
 }
