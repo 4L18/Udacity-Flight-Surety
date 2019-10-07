@@ -43,11 +43,16 @@ flightSuretyApp.events.OracleRequest({
   }, async function (error, event) {
       if(!error) {
         console.log(event); 
-        for(let idx = 0; idx < accounts.length; idx++) {
+        
+        for(let acc = 0; acc < accounts.length; acc++) {
             
-            let oracleIndexes = await flightSuretyApp.methods.getMyIndexes().call({ from: accounts[idx]});
-            await flightSuretyApp.methods.submitOracleResponse(oracleIndexes[idx], event.returnValues.airline, event.returnValues.flight, event.returnValues.timestamp, 0).call({ from: accounts[idx] });
-            console.log(accounts[idx]);
+            let oracleIndexes = await flightSuretyApp.methods.getMyIndexes().call({ from: accounts[acc]});
+            
+            for(let i = 0; i < oracleIndexes.length; i++) {
+                if(oracleIndexes[i] == event.returnValues.index) {
+                    await flightSuretyApp.methods.submitOracleResponse(event.returnValues.index, event.returnValues.airline, event.returnValues.flight, event.returnValues.timestamp, 0).call({ from: accounts[acc] });
+                }
+            }
         }
     } else {
         console.log(err);
