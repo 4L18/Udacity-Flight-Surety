@@ -5,7 +5,6 @@ import Web3 from 'web3';
 import express from 'express';
 
 
-
 let config;
 let web3;
 let flightSuretyApp;

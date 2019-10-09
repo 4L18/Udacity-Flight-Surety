@@ -33,7 +33,7 @@ contract FlightSuretyApp {
     uint private flightsCount = 0;
 
     uint8 private constant STATUS_CODE_UNKNOWN = 0;
-    uint8 private constant STATUS_CODE_CHECK_IN_CLOSEDE = 10;
+    uint8 private constant STATUS_CODE_CHECK_IN_CLOSED = 10;
     uint8 private constant STATUS_CODE_ON_TIME = 20;
     uint8 private constant STATUS_CODE_LATE_AIRLINE = 30;
     uint8 private constant STATUS_CODE_LATE_WEATHER = 40;
