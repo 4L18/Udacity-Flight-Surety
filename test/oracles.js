@@ -37,11 +37,11 @@ contract('Oracles', async (accounts) => {
   it('can request flight status', async () => {
     
     // ARRANGE
-    let flight = 'ND1309'; // Course number
-    let timestamp = Math.floor(Date.now() / 1000);
+    //let flight = web3.utils.utf8ToHex('ND1309'); // Course number
+    //let timestamp = Math.floor(Date.now() / 1000);
 
     // Submit a request for oracles to get status information for a flight
-    await config.flightSuretyApp.fetchFlightStatus(config.firstAirline, flight, timestamp);
+    await config.flightSuretyApp.fetchFlightStatus(config.firstAirline, config.flight, config.timestamp);
     // ACT
 
     // Since the Index assigned to each test account is opaque by design
@@ -57,13 +57,14 @@ contract('Oracles', async (accounts) => {
         try {
 
           // Submit a response...it will only be accepted if there is an Index match
-          await config.flightSuretyApp.submitOracleResponse(oracleIndexes[idx], config.firstAirline, flight, timestamp, 20, { from: accounts[a] });
+          await config.flightSuretyApp.submitOracleResponse(oracleIndexes[idx], config.firstAirline, config.flight, config.timestamp, STATUS_CODE_ON_TIME, { from: accounts[a] });
 
         }
         catch(e) {
           // Enable this when debugging
-          console.log('\nError', idx, oracleIndexes[idx].toNumber(), flight, timestamp);
-          console.log(e);
+          console.log('\nError', idx, oracleIndexes[idx].toNumber(), config.flight, config.timestamp);
+          console.log(e + '\n');
+          break;
         }
       }
     }
