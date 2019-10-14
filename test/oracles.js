@@ -52,19 +52,18 @@ contract('Oracles', async (accounts) => {
 
       // Get oracle information
       let oracleIndexes = await config.flightSuretyApp.getMyIndexes.call({ from: accounts[a]});
-      for(let idx=0;idx<3;idx++) {
+      console.log('oracleIndexes: ' + oracleIndexes);
+      for(let idx = 0; idx < 3; idx++) {
 
         try {
 
           // Submit a response...it will only be accepted if there is an Index match
           await config.flightSuretyApp.submitOracleResponse(oracleIndexes[idx], config.firstAirline, config.flight, config.timestamp, STATUS_CODE_ON_TIME, { from: accounts[a] });
-
         }
         catch(e) {
           // Enable this when debugging
           console.log('\nError', idx, oracleIndexes[idx].toNumber(), config.flight, config.timestamp);
           console.log(e + '\n');
-          break;
         }
       }
     }

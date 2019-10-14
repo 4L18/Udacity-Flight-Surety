@@ -49,7 +49,12 @@ flightSuretyApp.events.OracleRequest({
             
             for(let i = 0; i < oracleIndexes.length; i++) {
                 if(oracleIndexes[i] == event.returnValues.index) {
-                    await flightSuretyApp.methods.submitOracleResponse(event.returnValues.index, event.returnValues.airline, event.returnValues.flight, event.returnValues.timestamp, 0).call({ from: accounts[acc] });
+                    await flightSuretyApp.methods.submitOracleResponse(event.returnValues.index, event.returnValues.airline, event.returnValues.flight, event.returnValues.timestamp, 20).call({ from: accounts[acc] });
+                    console.log('server.js index: ' + event.returnValues.index);
+                    console.log('server.js airline: ' + event.returnValues.airline);
+                    console.log('server.js flight: ' + event.returnValues.flight);
+                    console.log('server.js timestamp: ' + event.returnValues.timestamp);
+                    console.log('server.js status: ' + 20);                    
                 }
             }
         }
