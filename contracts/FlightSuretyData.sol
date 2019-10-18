@@ -117,12 +117,12 @@ contract FlightSuretyData {
         operational = mode;
     }
 
-    function isCallerAuthorized(address sender)
+    function isAuthorized(address addr)
     public
     view
     returns(bool)
     {
-        return authorizedCallers[sender];
+        return authorizedCallers[addr];
     }
     
     function authorizeCaller(address addr)
@@ -130,7 +130,7 @@ contract FlightSuretyData {
     onlyAuthorizedCallers(msg.sender)
     requireIsOperational
     {
-        require(!isCallerAuthorized(addr));
+        require(!isAuthorized(addr));
         authorizedCallers[addr] = true;
         emit CallerHasBeenAuthorized(addr);
     }
@@ -139,8 +139,16 @@ contract FlightSuretyData {
     external
     requireIsOperational
     {
-        require(isCallerAuthorized(addr));
+        require(isAuthorized(addr));
         authorizedCallers[addr] = false;
+    }
+
+    function isRegistered(address airline)
+    external
+    view
+    returns(bool)
+    {
+        return (airlines[airline].status == AirlineStatus.Registered);
     }
 
     function getAirlineStatus(address airline)
@@ -204,8 +212,9 @@ contract FlightSuretyData {
         airlines[addr].status = AirlineStatus.Voted;
         emit AirlineHasBeenVoted(addr);
 
-        require(airlines[addr].votes > airlinesCount.div(2), "There is not consensus yet");
-        this.registerAirline(addr);
+        if(airlines[addr].votes > airlinesCount.div(2)) {
+            this.registerAirline(addr);            
+        }
         
         return airlines[addr].status;
     }

@@ -18,59 +18,18 @@ import './flightsurety.css';
     
 
         // User-submitted transaction
-        DOM.elid('submit-oracle').addEventListener('click', () => {
+        DOM.elid('req-to-oracle').addEventListener('click', () => {
             console.log('submit oracle clicked');
+
+            flight = DOM.elid('flight-number').value;
+            console.log(flight);            
             
-            flight = DOM.elid('flight-number').value;            
-             
             contract.fetchFlightStatus(flight, (error, result) => {
-                
-                var status;
-                
-                switch(result) {
-                    case contract.STATUS_CODE_UNKNOWN:
-                        status = 'Before check in';
-                        // show pay insurance
-                        var payDiv = DOM.elid('pay-div');
-                        payDiv.style.visibility = 'visible';
-                        break;
-                    
-                    case contract.STATUS_CODE_CHECK_IN_CLOSEDE:
-                        status = 'Check in closed';
-                        break;
-                    
-                    case contract.STATUS_CODE_ON_TIME:
-                        status = 'On time';
-                        break;
-                                        
-                    case contract.STATUS_CODE_LATE_AIRLINE:
-                        status = 'Late due to airline';
-                        // show withdrawal credit
-                        var refundDiv = DOM.elid('refund-div');
-                        refundDiv.style.visibility = 'visible';
-                        break;
-                    
-                    case contract.STATUS_CODE_LATE_WEATHER:
-                        status = 'Late due to weather';
-                        break;
-                    
-                    case contract.STATUS_CODE_LATE_TECHNICAL:
-                        status = 'Late due to tecnical procedures';
-                        break;
-                    
-                    case contract.STATUS_CODE_LATE_OTHER:
-                        status = 'Late';
-                        break;
-                    
-                    default:
-                        console.log('Status code does not match');
-                        break;
-                }
-
-                display('Fligth status', 'Checks flight\'s current status', [ { label: 'Flight\' ' + $(flight) + ' status', error: error, value: status} ]);
-
+                console.log('insideFFS' + JSON.stringify(result));
             });
         })
+
+        
 
         DOM.elid('withdrawal-credit').addEventListener('click', (error, result) => {
             console.log('withdrawal credit clicked');
@@ -119,7 +78,6 @@ function display(title, description, results) {
         section.appendChild(row);
     })
     displayDiv.append(section);
-
 }
 
 

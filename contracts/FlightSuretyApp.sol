@@ -115,7 +115,7 @@ contract FlightSuretyApp {
     returns(FlightSuretyData.AirlineStatus)
     {
 
-        require(flightSuretyData.getAirlineStatus(msg.sender) == FlightSuretyData.AirlineStatus.Authorized);
+        require(flightSuretyData.getAirlineStatus(msg.sender) == FlightSuretyData.AirlineStatus.Authorized, "Not auth");
         require(flightSuretyData.getAirlineStatus(addr) != FlightSuretyData.AirlineStatus.Registered);
         require(flightSuretyData.getAirlineStatus(addr) != FlightSuretyData.AirlineStatus.Authorized);
         
@@ -127,7 +127,8 @@ contract FlightSuretyApp {
 
             flightSuretyData.voteAirline(addr);            
         }
-        return (flightSuretyData.getAirlineStatus(addr));
+
+        return flightSuretyData.getAirlineStatus(addr);
     }
 
     function fund()
@@ -181,7 +182,7 @@ contract FlightSuretyApp {
         bool success = flightSuretyData.creditInsurees(msg.sender, credit);
         insuredPassengers[msg.sender] = 0;        
         emit SuretyWithdrawal(msg.sender, flightNumber);
-        require(success);
+        return success;
     }
 
     function registerFlight(bytes32 flightNumber, address airlineAddr, uint256 timestamp)
@@ -203,7 +204,7 @@ contract FlightSuretyApp {
     requireIsOperational
     onlyExternalOwnedAccounts(tx.origin, msg.sender)
     {
-        require(flightSuretyData.isCallerAuthorized(msg.sender));
+        require(flightSuretyData.isAuthorized(msg.sender));
         flights[flight].statusCode = statusCode;
         flights[flight].updatedTimestamp = timestamp;
         emit FlightStatusUpdated(airline, flight, timestamp, statusCode);

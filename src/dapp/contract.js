@@ -45,7 +45,7 @@ export default class Contract {
         let payload = {
             airline: self.airlines[0],
             flight: flight,
-            timestamp: Math.floor(Date.now() / 1000)
+            timestamp: Math.floor(Date.now() / 1000),
         } 
         self.flightSuretyApp.methods
             .fetchFlightStatus(payload.airline, payload.flight, payload.timestamp)
@@ -53,4 +53,14 @@ export default class Contract {
                 callback(error, payload);
             });
     }
+    /*flightSuretyApp.events.FlightStatusUpdated({
+        fromBlock: 0
+        }, async function (error, event) {
+            if(!error) {
+                console.log(event);
+            } else {
+                console.log(err);
+            }
+        });*/
+    
 }

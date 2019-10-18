@@ -34,12 +34,9 @@ async function registerOracles() {
 
 setup();
 
-// Implement the flightSuretyApp.events.OracleRequest
-// Inside of it execute the submitOracleResponse from flightSuretyApp
-
 flightSuretyApp.events.OracleRequest({
-    fromBlock: 0
-  }, async function (error, event) {
+        fromBlock: 0
+    }, async function (error, event) {
       if(!error) {
         console.log(event); 
         
@@ -49,12 +46,7 @@ flightSuretyApp.events.OracleRequest({
             
             for(let i = 0; i < oracleIndexes.length; i++) {
                 if(oracleIndexes[i] == event.returnValues.index) {
-                    await flightSuretyApp.methods.submitOracleResponse(event.returnValues.index, event.returnValues.airline, event.returnValues.flight, event.returnValues.timestamp, 20).call({ from: accounts[acc] });
-                    console.log('server.js index: ' + event.returnValues.index);
-                    console.log('server.js airline: ' + event.returnValues.airline);
-                    console.log('server.js flight: ' + event.returnValues.flight);
-                    console.log('server.js timestamp: ' + event.returnValues.timestamp);
-                    console.log('server.js status: ' + 20);                    
+                    await flightSuretyApp.methods.submitOracleResponse(event.returnValues.index, event.returnValues.airline, event.returnValues.flight, event.returnValues.timestamp, 20).call({ from: accounts[acc] });              
                 }
             }
         }
@@ -63,6 +55,16 @@ flightSuretyApp.events.OracleRequest({
     }
 });
 
+flightSuretyApp.events.FlightStatusUpdated({
+        fromBlock: 0
+    }, async function (error, event) {
+        console.log('algo');
+      if(!error) {
+        console.log('\n FSU EVENT:\n' + event); 
+    } else {
+        console.log(err);
+    }
+});
 
 const app = express();
 app.get('/api', (req, res) => {

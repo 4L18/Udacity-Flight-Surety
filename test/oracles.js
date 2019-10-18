@@ -22,11 +22,9 @@ contract('Oracles', async (accounts) => {
 
 
   it('can register oracles', async () => {
-    
-    // ARRANGE
+
     let fee = await config.flightSuretyApp.REGISTRATION_FEE.call();
 
-    // ACT
     for(let a=0; a<TEST_ORACLES_COUNT; a++) {      
       await config.flightSuretyApp.registerOracle({ from: accounts[a], value: fee });
       let result = await config.flightSuretyApp.getMyIndexes.call({from: accounts[a]});
@@ -36,13 +34,8 @@ contract('Oracles', async (accounts) => {
 
   it('can request flight status', async () => {
     
-    // ARRANGE
-    //let flight = web3.utils.utf8ToHex('ND1309'); // Course number
-    //let timestamp = Math.floor(Date.now() / 1000);
-
     // Submit a request for oracles to get status information for a flight
     await config.flightSuretyApp.fetchFlightStatus(config.firstAirline, config.flight, config.timestamp);
-    // ACT
 
     // Since the Index assigned to each test account is opaque by design
     // loop through all the accounts and for each account, all its Indexes
@@ -62,9 +55,9 @@ contract('Oracles', async (accounts) => {
           console.log('\nSuccess', idx, oracleIndexes[idx].toNumber(), config.flight, config.timestamp);
         }
         catch(e) {
+          
           // Enable this when debugging
           console.log('\nError', idx, oracleIndexes[idx].toNumber(), config.flight, config.timestamp);
-          //console.log(e + '\n');
         }
       }
     }
